@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: 248 249 251;
+    --fg: 17 24 39;
+    --muted: 107 114 128;
+    --panel: 255 255 255;
+    --border: 17 24 39;
+    --accent: 0 122 255;
+    --accent2: 88 86 214;
+    --danger: 239 68 68;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: 11 12 15;
+      --fg: 243 244 246;
+      --muted: 156 163 175;
+      --panel: 18 19 24;
+      --border: 255 255 255;
+      --accent: 10 132 255;
+      --accent2: 94 92 230;
+      --danger: 248 113 113;
+    }
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-fg antialiased;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.22);
+  }
+}
+
+@layer components {
+  .app-bg {
+    position: relative;
+    min-height: 100%;
+    isolation: isolate;
+  }
+  .app-bg::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(1200px 700px at 20% 10%, rgb(var(--accent) / 0.12), transparent 60%),
+      radial-gradient(900px 600px at 80% 0%, rgb(var(--accent2) / 0.14), transparent 60%),
+      radial-gradient(900px 700px at 50% 100%, rgb(255 140 0 / 0.07), transparent 55%),
+      linear-gradient(180deg, rgb(var(--bg) / 1), rgb(var(--bg) / 1));
+  }
+  .app-bg::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+  }
+
+  .glass {
+    background: rgb(var(--panel) / 0.62);
+    border: 1px solid rgb(var(--border) / 0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .glass-strong {
+    background: rgb(var(--panel) / 0.78);
+    border: 1px solid rgb(var(--border) / 0.12);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
