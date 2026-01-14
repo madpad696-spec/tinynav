@@ -106,6 +106,7 @@ export function BrandingCard({
 
   const [siteTitle, setSiteTitle] = useState(initial.siteTitle);
   const [siteSubtitle, setSiteSubtitle] = useState(initial.siteSubtitle);
+  const [homeTagline, setHomeTagline] = useState(initial.homeTagline);
   const [siteIconDataUrl, setSiteIconDataUrl] = useState(initial.siteIconDataUrl);
   const [faviconDataUrl, setFaviconDataUrl] = useState(initial.faviconDataUrl);
   const [siteIconFit, setSiteIconFit] = useState<SiteSettings["siteIconFit"]>(initial.siteIconFit);
@@ -123,6 +124,7 @@ export function BrandingCard({
   useEffect(() => {
     setSiteTitle(initial.siteTitle);
     setSiteSubtitle(initial.siteSubtitle);
+    setHomeTagline(initial.homeTagline);
     setSiteIconDataUrl(initial.siteIconDataUrl);
     setFaviconDataUrl(initial.faviconDataUrl);
     setSiteIconFit(initial.siteIconFit);
@@ -149,6 +151,7 @@ export function BrandingCard({
   const previewSettings = normalizeSiteSettings({
     siteTitle,
     siteSubtitle,
+    homeTagline,
     siteIconDataUrl,
     faviconDataUrl,
     siteIconFit
@@ -229,6 +232,7 @@ export function BrandingCard({
     setInlineError(null);
     setSiteTitle(DEFAULT_SITE_SETTINGS.siteTitle);
     setSiteSubtitle(DEFAULT_SITE_SETTINGS.siteSubtitle);
+    setHomeTagline(DEFAULT_SITE_SETTINGS.homeTagline);
     setSiteIconDataUrl(DEFAULT_SITE_SETTINGS.siteIconDataUrl);
     setFaviconDataUrl(DEFAULT_SITE_SETTINGS.faviconDataUrl);
     setSiteIconFit(DEFAULT_SITE_SETTINGS.siteIconFit);
@@ -287,6 +291,7 @@ export function BrandingCard({
         <div className="lg:col-span-7 space-y-4">
           <Field label="站点标题" value={siteTitle} onChange={setSiteTitle} placeholder="AppleBar" />
           <Field label="副标题" value={siteSubtitle} onChange={setSiteSubtitle} placeholder="个人导航" />
+          <Field label="主页标语" value={homeTagline} onChange={setHomeTagline} placeholder="轻盈、克制、随手可用。" />
 
           <div className="rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4 p-3">
             <div className="text-sm font-medium text-fg/80">图标适配</div>
@@ -387,7 +392,7 @@ export function BrandingCard({
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4 p-3">
             <div className="flex items-center justify-between">
               <div className="text-xs font-medium text-fg/80">Favicon 预览</div>
-              <TopBarIcon src={previewSettings.faviconDataUrl} fit="cover" sizeClassName="h-9 w-9" />
+              <TopBarIcon src={previewSettings.faviconDataUrl} fit="cover" sizeClassName="h-10 w-10" />
             </div>
             <div className="mt-2 text-xs text-muted">保存后会动态注入 `&lt;link rel="icon"&gt;`，清除可恢复默认。</div>
           </div>
@@ -482,13 +487,12 @@ function UploadField({
             </Button>
             <Button
               variant="ghost"
-              className="h-9 px-3"
-              leftIcon={<Eraser size={18} />}
+              className="h-9 w-9 px-0"
+              aria-label={clearText}
+              leftIcon={/恢复默认/.test(clearText) ? <RotateCcw size={18} /> : <Eraser size={18} />}
               onClick={onClear}
               disabled={!has}
-            >
-              {clearText}
-            </Button>
+            />
           </div>
         </div>
       </div>

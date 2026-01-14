@@ -1,6 +1,6 @@
 import { Laptop2, Moon, Settings, Sun, User } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { normalizeSiteSettings } from "../lib/siteSettings";
 import { useTheme } from "../lib/theme";
@@ -12,10 +12,41 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
   const reduceMotion = useReducedMotion();
   const { mode, resolved, setMode } = useTheme();
   const [open, setOpen] = useState(false);
+  const themeTriggerRef = useRef<HTMLDivElement | null>(null);
+  const themePanelRef = useRef<HTMLDivElement | null>(null);
   const currentIcon =
     mode === "system" ? <Laptop2 size={18} /> : resolved === "dark" ? <Moon size={18} /> : <Sun size={18} />;
 
   const s = useMemo(() => normalizeSiteSettings(settings), [settings]);
+
+  useEffect(() => {
+    document.title = s.siteTitle || "AppleBar";
+  }, [s.siteTitle]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDownCapture = (e: PointerEvent) => {
+      const triggerEl = themeTriggerRef.current;
+      const panelEl = themePanelRef.current;
+      if (!triggerEl || !panelEl) return;
+      if (!(e.target instanceof Node)) return;
+      if (triggerEl.contains(e.target)) return;
+      if (panelEl.contains(e.target)) return;
+      setOpen(false);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDownCapture, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDownCapture, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   return (
     <header className="sticky top-0 z-40">
@@ -41,7 +72,7 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
           </Link>
 
           <div className="flex items-center gap-2">
-            <div className="relative">
+            <div className="relative" ref={themeTriggerRef}>
               <Button
                 variant="ghost"
                 className="h-10 px-3"
@@ -54,11 +85,13 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
               <AnimatePresence>
                 {open ? (
                   <motion.div
+                    ref={themePanelRef}
                     initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                     animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                     transition={reduceMotion ? { duration: 0.12 } : { type: "spring", stiffness: 420, damping: 34 }}
                     className="absolute right-0 mt-2 w-44 rounded-2xl glass-strong p-2 shadow-[0_30px_90px_rgba(0,0,0,.18)] dark:shadow-[0_30px_110px_rgba(0,0,0,.55)]"
+                    role="menu"
                   >
                     <div className="space-y-1">
                       <Button
@@ -69,6 +102,7 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
                           setMode("system");
                           setOpen(false);
                         }}
+                        role="menuitem"
                       >
                         系统
                       </Button>
@@ -80,6 +114,7 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
                           setMode("light");
                           setOpen(false);
                         }}
+                        role="menuitem"
                       >
                         浅色
                       </Button>
@@ -91,6 +126,7 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
                           setMode("dark");
                           setOpen(false);
                         }}
+                        role="menuitem"
                       >
                         深色
                       </Button>

@@ -10,16 +10,19 @@ export type SidebarCategory = {
 export function SidebarCategoryPicker({
   groups,
   selectedId,
+  hoveredId,
+  onHover,
   onSelect,
   rowHeight = 42
 }: {
   groups: SidebarCategory[];
   selectedId: string | null;
+  hoveredId: string | null;
+  onHover: (id: string) => void;
   onSelect: (id: string) => void;
   rowHeight?: number;
 }) {
   const reduceMotion = useReducedMotion();
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -39,6 +42,8 @@ export function SidebarCategoryPicker({
     const idx = groups.findIndex((g) => g.id === selectedId);
     return idx >= 0 ? idx : 0;
   }, [groups, selectedId]);
+
+  const activeId = hoveredId ?? selectedId;
 
   const snapYForIndex = (idx: number) => idx * rowHeight + pad;
   const yTarget = useMotionValue(snapYForIndex(selectedIndex));
@@ -74,29 +79,12 @@ export function SidebarCategoryPicker({
   const highlightY = useTransform(y, [minTopY, maxTopY], ["22%", "78%"]);
   const draggingOpacity = useTransform(y, () => (dragging ? 0.9 : 1));
 
-  const dropletVisual = (
-    <motion.div
-      aria-hidden
-      style={{ y, height: dropletHeight, opacity: draggingOpacity, ["--hlY" as any]: highlightY }}
-      className="pointer-events-none absolute inset-x-2 top-0 z-0 rounded-full border border-white/14 bg-white/18 shadow-[0_12px_26px_rgba(0,0,0,0.14)] backdrop-blur-md dark:border-white/10 dark:bg-white/8 dark:shadow-[0_18px_44px_rgba(0,0,0,0.42)]"
-    >
-      <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(120px 46px at 50% var(--hlY), rgba(255,255,255,0.22), rgba(255,255,255,0) 68%), linear-gradient(to bottom, rgba(255,255,255,0.10), rgba(255,255,255,0))"
-          }}
-        />
-      </div>
-    </motion.div>
-  );
-
   const startPointerDrag = (e: React.PointerEvent) => {
     if (!groups.length) return;
     if (e.button !== 0) return;
     if (dragRef.current) return;
 
+    e.preventDefault();
     const topY = yTarget.get();
     dragRef.current = {
       pointerId: e.pointerId,
@@ -114,6 +102,7 @@ export function SidebarCategoryPicker({
     const st = dragRef.current;
     if (!st || st.pointerId !== e.pointerId) return;
 
+    e.preventDefault();
     const dy = e.clientY - st.startClientY;
     if (!st.started && Math.abs(dy) < 3) return;
     if (!st.started) {
@@ -132,7 +121,7 @@ export function SidebarCategoryPicker({
 
     const idx = indexFromTopY(next);
     const g = groups[idx];
-    if (g && g.id !== selectedId) onSelect(g.id);
+    if (g && g.id !== activeId) onHover(g.id);
   };
 
   const endPointerDrag = (e: React.PointerEvent) => {
@@ -152,6 +141,7 @@ export function SidebarCategoryPicker({
     const idx = indexFromTopY(projected);
     const g = groups[idx];
     if (g && g.id !== selectedId) onSelect(g.id);
+    if (g && g.id !== activeId) onHover(g.id);
 
     const target = snapYForIndex(idx);
     if (reduceMotion) yTarget.set(target);
@@ -159,38 +149,47 @@ export function SidebarCategoryPicker({
   };
 
   return (
-    <div className="glass w-full max-w-[240px] rounded-3xl border border-white/10 p-1.5 shadow-soft dark:border-white/10 dark:shadow-softDark">
+    <div className="glass w-full max-w-[240px] rounded-3xl border border-[#ffffff] p-1.5 shadow-soft dark:border-[#ffffff] dark:shadow-softDark">
       <div className="px-2.5 pb-1.5 pt-1.5 text-[11px] font-medium text-fg/70">分类</div>
-      <div ref={containerRef} className="relative">
+      <div className="relative">
         <div
           style={{ height: Math.max(1, groups.length) * rowHeight }}
-          className="relative select-none touch-none"
-          onPointerDown={startPointerDrag}
-          onPointerMove={movePointerDrag}
-          onPointerUp={endPointerDrag}
-          onPointerCancel={endPointerDrag}
+          className="relative select-none touch-none [-webkit-user-select:none] [-webkit-touch-callout:none]"
         >
-          {groups.length ? dropletVisual : null}
-          <div className="relative z-10">
+          {groups.length ? (
+            <motion.div
+              aria-hidden
+              style={{ y, height: dropletHeight, opacity: draggingOpacity, ["--hlY" as any]: highlightY }}
+              className="absolute inset-x-1 top-0 z-20 cursor-grab rounded-full border border-[#ffffff] bg-white/18 shadow-[0_12px_26px_rgba(0,0,0,0.14)] backdrop-blur-md active:cursor-grabbing dark:border-[#ffffff] dark:bg-white/8 dark:shadow-[0_18px_44px_rgba(0,0,0,0.42)]"
+              onPointerDown={startPointerDrag}
+              onPointerMove={movePointerDrag}
+              onPointerUp={endPointerDrag}
+              onPointerCancel={endPointerDrag}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,0.14) 28%, rgba(255,255,255,0.14) 72%, rgba(255,255,255,0)), radial-gradient(120px 46px at 50% var(--hlY), rgba(255,255,255,0.22), rgba(255,255,255,0) 68%), linear-gradient(to bottom, rgba(255,255,255,0.10), rgba(255,255,255,0))"
+                  }}
+                />
+              </div>
+            </motion.div>
+          ) : null}
+
+          <div className="relative z-10 select-none [-webkit-user-select:none]">
             {groups.map((g) => {
-              const active = g.id === selectedId;
+              const active = g.id === activeId;
               return (
-                <button
+                <div
                   key={g.id}
-                  type="button"
                   className={
-                    "group flex w-full items-center justify-between rounded-2xl px-3 text-left transition-colors " +
-                    (active ? "text-fg" : "text-fg/80 hover:text-fg") +
-                    " focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                    "flex w-full items-center justify-between rounded-2xl px-3 text-left transition-colors cursor-default select-none [-webkit-user-select:none] " +
+                    (active ? "text-fg" : "text-fg/80")
                   }
                   style={{ height: rowHeight }}
-                  onClick={() => {
-                    onSelect(g.id);
-                    const idx = groups.findIndex((x) => x.id === g.id);
-                    const target = snapYForIndex(idx >= 0 ? idx : 0);
-                    if (reduceMotion) yTarget.set(target);
-                    else animate(yTarget, target, { type: "spring", stiffness: 520, damping: 40, mass: 0.7 });
-                  }}
                 >
                   <div className="min-w-0">
                     <div className={"truncate text-xs font-medium " + (active ? "text-fg" : "")}>{g.name}</div>
@@ -198,7 +197,7 @@ export function SidebarCategoryPicker({
                   {typeof g.count === "number" ? (
                     <div className={"text-[11px] tabular-nums " + (active ? "text-fg/80" : "text-muted")}>{g.count}</div>
                   ) : null}
-                </button>
+                </div>
               );
             })}
           </div>

@@ -1,20 +1,22 @@
-import { motion, useReducedMotion } from "framer-motion";
-import { Globe, LogOut, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Check, ChevronDown, Globe, LogOut, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AdminDock, type AdminDockTab } from "../components/AdminDock";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { BrandingCard } from "../components/BrandingCard";
 import { Modal } from "../components/Modal";
 import { Navbar } from "../components/Navbar";
 import { Switch } from "../components/Switch";
+import { SectionedLinksPanel } from "../components/admin/SectionedLinksPanel";
 import { SortableOverlayList } from "../components/sortable/SortableOverlayList";
 import { ApiError, api } from "../lib/api";
 import { useMe } from "../lib/auth";
 import { faviconServiceUrl, normalizeFaviconUrl } from "../lib/favicon";
 import { applyFavicon } from "../lib/siteSettings";
 import { isHttpOrHttpsUrl, normalizeHttpUrl } from "../lib/url";
-import type { CloudNavData, Group, LinkItem } from "../types";
+import type { CloudNavData, Group, LinkItem, Section } from "../types";
 
 function toErrorView(e: unknown, fallback: string): { message: string; details?: string[] } {
   if (e instanceof ApiError) {
@@ -38,20 +40,191 @@ function formatZodIssues(details: unknown): string[] | undefined {
   return lines.length ? lines : undefined;
 }
 
+type AppleSelectOption = { value: string; label: string };
+
+function AppleSelect({
+  value,
+  onChange,
+  options,
+  disabled,
+  placeholder,
+  ariaLabel
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  options: AppleSelectOption[];
+  disabled?: boolean;
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const listId = useId();
+
+  const selected = options.find((o) => o.value === value);
+  const selectedLabel = selected?.label ?? "";
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = rootRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && el.contains(e.target)) return;
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const idx = options.findIndex((o) => o.value === value);
+    setActiveIndex(idx >= 0 ? idx : 0);
+  }, [open, options, value]);
+
+  useEffect(() => {
+    if (!open) return;
+    requestAnimationFrame(() => listRef.current?.focus());
+  }, [open]);
+
+  function commit(next: string) {
+    onChange(next);
+    setOpen(false);
+    requestAnimationFrame(() => buttonRef.current?.focus());
+  }
+
+  function clampIndex(i: number) {
+    return Math.max(0, Math.min(options.length - 1, i));
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (disabled) return;
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            setOpen(true);
+            requestAnimationFrame(() => listRef.current?.focus());
+            return;
+          }
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+            return;
+          }
+        }}
+        className="glass flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent/35 disabled:opacity-50"
+      >
+        <span className={selectedLabel ? "truncate" : "truncate text-muted"}>{selectedLabel || placeholder || "选择…"}</span>
+        <ChevronDown size={16} className="shrink-0 text-muted" />
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            key="popover"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
+            transition={reduceMotion ? { duration: 0.12 } : { type: "spring", stiffness: 520, damping: 38 }}
+            className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl border border-white/12 bg-white/12 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:bg-white/8 dark:shadow-[0_26px_80px_rgba(0,0,0,0.55)]"
+          >
+            <ul
+              id={listId}
+              ref={listRef}
+              role="listbox"
+              aria-label={ariaLabel}
+              tabIndex={-1}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setOpen(false);
+                  return;
+                }
+                if (e.key === "Tab") {
+                  setOpen(false);
+                  return;
+                }
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setActiveIndex((i) => clampIndex(i + 1));
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveIndex((i) => clampIndex(i - 1));
+                  return;
+                }
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const next = options[activeIndex];
+                  if (next) commit(next.value);
+                  return;
+                }
+              }}
+              className="max-h-64 overflow-auto p-1 outline-none"
+            >
+              {options.map((opt, idx) => {
+                const isSelected = opt.value === value;
+                const isActive = idx === activeIndex;
+                return (
+                  <li
+                    key={opt.value}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => commit(opt.value)}
+                    className={[
+                      "flex cursor-default items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm",
+                      isActive ? "bg-white/14 dark:bg-white/10" : "bg-transparent",
+                      isSelected ? "text-fg" : "text-fg/90"
+                    ].join(" ")}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected ? <Check size={16} className="shrink-0 text-fg/80" /> : <span className="h-4 w-4 shrink-0" />}
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function Admin() {
   const reduceMotion = useReducedMotion();
   const { authed } = useMe();
   const nav = useNavigate();
 
   const [data, setData] = useState<CloudNavData | null>(null);
+  const [activeTab, setActiveTab] = useState<AdminDockTab>("nav");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; details?: string[] } | null>(null);
 
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [creatingSection, setCreatingSection] = useState(false);
   const [creatingLink, setCreatingLink] = useState(false);
+  const [creatingLinkSectionId, setCreatingLinkSectionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authed === false) nav("/login", { replace: true, state: { from: "/admin" } });
@@ -82,10 +255,16 @@ export default function Admin() {
     [groups, selectedGroupId]
   );
 
-  const linksInSelectedGroup = useMemo(() => {
+  const sectionsInSelectedGroup = useMemo(() => {
     if (!selectedGroup) return [];
-    return links.filter((l) => l.groupId === selectedGroup.id).sort((a, b) => a.order - b.order);
-  }, [links, selectedGroup]);
+    return (data?.sections ?? []).filter((s) => s.groupId === selectedGroup.id).slice().sort((a, b) => a.order - b.order);
+  }, [data?.sections, selectedGroup]);
+
+  const sectionOptionsForSelectedGroup = useMemo(() => {
+    const out: { id: string; label: string }[] = [{ id: "", label: "未分组" }];
+    for (const s of sectionsInSelectedGroup) out.push({ id: s.id, label: s.name });
+    return out;
+  }, [sectionsInSelectedGroup]);
 
   async function logout() {
     await api.logout();
@@ -103,6 +282,38 @@ export default function Admin() {
     });
     try {
       await api.admin.reorder({ groups: nextIds.map((id, i) => ({ id, order: i })) });
+      await refreshData();
+    } catch (e: unknown) {
+      setError(toErrorView(e, "排序保存失败"));
+      await refreshData();
+    }
+  }
+
+  async function reorderSectionsAndLinks(payload: {
+    sections: { id: string; order: number }[];
+    links: { id: string; order: number; sectionId: string | null }[];
+  }) {
+    if (!data) return;
+    setError(null);
+    setData((prev) => {
+      if (!prev) return prev;
+      const sectionOrder = new Map(payload.sections.map((s) => [s.id, s.order] as const));
+      const linkOrder = new Map(payload.links.map((l) => [l.id, l] as const));
+      const nextSections = (prev.sections ?? []).map((s) =>
+        sectionOrder.has(s.id) ? { ...s, order: sectionOrder.get(s.id)! } : s
+      );
+      const nextLinks = prev.links.map((l) => {
+        const p = linkOrder.get(l.id);
+        if (!p) return l;
+        return { ...l, order: p.order, sectionId: p.sectionId ?? undefined };
+      });
+      return { ...prev, sections: nextSections, links: nextLinks };
+    });
+    try {
+      await api.admin.reorder({
+        sections: payload.sections,
+        links: payload.links.map((l) => ({ id: l.id, order: l.order, sectionId: l.sectionId }))
+      });
       await refreshData();
     } catch (e: unknown) {
       setError(toErrorView(e, "排序保存失败"));
@@ -181,7 +392,47 @@ export default function Admin() {
     }
   }
 
-  async function createLink(input: { title: string; url: string; description: string; icon: string }) {
+  async function createSection(name: string) {
+    if (!selectedGroup) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.admin.sections.create({ groupId: selectedGroup.id, name });
+      await refreshData();
+    } catch (e: unknown) {
+      setError(toErrorView(e, "创建二级分类失败"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateSection(id: string, name: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.admin.sections.update(id, { name });
+      await refreshData();
+    } catch (e: unknown) {
+      setError(toErrorView(e, "更新二级分类失败"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteSection(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.admin.sections.delete(id);
+      await refreshData();
+    } catch (e: unknown) {
+      setError(toErrorView(e, "删除二级分类失败"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createLink(input: { title: string; url: string; description: string; icon: string; sectionId: string | null }) {
     if (!selectedGroup) return;
     setBusy(true);
     setError(null);
@@ -189,6 +440,7 @@ export default function Admin() {
       const url = isHttpOrHttpsUrl(input.url) ? input.url : normalizeHttpUrl(input.url);
       await api.admin.links.create({
         groupId: selectedGroup.id,
+        sectionId: input.sectionId || undefined,
         title: input.title,
         url,
         icon: input.icon || undefined,
@@ -202,7 +454,10 @@ export default function Admin() {
     }
   }
 
-  async function updateLink(id: string, patch: { title: string; url: string; description: string; icon: string }) {
+  async function updateLink(
+    id: string,
+    patch: { title: string; url: string; description: string; icon: string; sectionId: string | null }
+  ) {
     setBusy(true);
     setError(null);
     try {
@@ -211,7 +466,8 @@ export default function Admin() {
         title: patch.title,
         url,
         icon: patch.icon,
-        description: patch.description || ""
+        description: patch.description || "",
+        sectionId: patch.sectionId
       });
       await refreshData();
     } catch (e: unknown) {
@@ -277,8 +533,9 @@ export default function Admin() {
             </div>
           ) : null}
 
+          {activeTab === "nav" ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            <Card className="p-4 lg:col-span-4">
+            <Card interactive={false} className="p-4 lg:col-span-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold">分类</div>
                 <Button
@@ -303,69 +560,57 @@ export default function Admin() {
                       onSelect={() => setSelectedGroupId(g.id)}
                       onToggleEnabled={(next) => updateGroupEnabled(g.id, next).catch(() => undefined)}
                       onEdit={() => setEditingGroup(g)}
-                      onDelete={() => {
-                        if (!confirm(`删除分类「${g.name}」？该分类下的链接也会被删除。`)) return;
-                        deleteGroup(g.id).catch(() => undefined);
-                      }}
                     />
                   )}
                 />
               </div>
             </Card>
 
-            <Card className="p-4 lg:col-span-8">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">{selectedGroup ? `链接 · ${selectedGroup.name}` : "链接"}</div>
-                <Button
-                  variant="secondary"
-                  leftIcon={<Plus size={18} />}
-                  onClick={() => setCreatingLink(true)}
-                  disabled={!selectedGroup || busy}
-                >
-                  新增
-                </Button>
-              </div>
-
-              <div className="mt-3">
-                {selectedGroup ? (
-                  <SortableOverlayList
-                    items={linksInSelectedGroup}
-                    onReorder={reorderLinksInSelectedGroup}
-                    renderItem={(l, handle) => (
-                      <LinkRow
-                        link={l}
-                        busy={busy}
-                        handle={handle}
-                        onEdit={() => setEditingLink(l)}
-                        onDelete={() => {
-                          if (!confirm(`删除链接「${l.title}」？`)) return;
-                          deleteLink(l.id).catch(() => undefined);
-                        }}
-                      />
-                    )}
-                  />
-                ) : (
-                  <div className="rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4 p-6 text-sm text-muted">
-                    还没有分类。先添加一个分类。
-                  </div>
-                )}
-
-                {selectedGroup && !linksInSelectedGroup.length ? (
-                  <div className="mt-2 rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4 p-6 text-sm text-muted">
-                    这个分类还没有链接。点击右上角“新增”。
-                  </div>
-                ) : null}
-              </div>
-             </Card>
+            <Card interactive={false} className="p-4 lg:col-span-8">
+              {selectedGroup ? (
+                <SectionedLinksPanel
+                  groupId={selectedGroup.id}
+                  groupName={selectedGroup.name}
+                  sections={sectionsInSelectedGroup}
+                  links={links.filter((l) => l.groupId === selectedGroup.id)}
+                  busy={busy}
+                  onCreateSection={() => setCreatingSection(true)}
+                  onEditSection={(s) => setEditingSection(s)}
+                  onDeleteSection={(s) => {
+                    if (!confirm(`删除二级分类「${s.name}」？该分类内的链接会移动到未分组。`)) return;
+                    deleteSection(s.id).catch(() => undefined);
+                  }}
+                  onCreateLink={(sectionId) => {
+                    setCreatingLinkSectionId(sectionId);
+                    setCreatingLink(true);
+                  }}
+                  onEditLink={(l) => setEditingLink(l)}
+                  onDeleteLink={(l) => {
+                    if (!confirm(`删除链接「${l.title}」？`)) return;
+                    deleteLink(l.id).catch(() => undefined);
+                  }}
+                  onPersistReorder={reorderSectionsAndLinks}
+                />
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4 p-6 text-sm text-muted">
+                  还没有分类。先添加一个分类。
+                </div>
+              )}
+            </Card>
            </div>
+          ) : null}
 
-           <BrandingCard
-             settings={data?.settings}
-             disabled={busy}
-             onSettingsSaved={(next) => setData((prev) => (prev ? { ...prev, settings: next } : prev))}
-           />
+          {activeTab === "settings" ? (
+          <BrandingCard
+            settings={data?.settings}
+            disabled={busy}
+            onSettingsSaved={(next) => setData((prev) => (prev ? { ...prev, settings: next } : prev))}
+          />
+          ) : null}
          </motion.div>
       </main>
+
+      <AdminDock activeTab={activeTab} onChangeTab={setActiveTab} />
 
       <GroupModal
         open={creatingGroup}
@@ -383,6 +628,13 @@ export default function Admin() {
         title="编辑分类"
         initial={{ name: editingGroup?.name ?? "" }}
         onClose={() => setEditingGroup(null)}
+        onDelete={() => {
+          const g = editingGroup;
+          setEditingGroup(null);
+          if (!g) return;
+          if (!confirm(`删除分类「${g.name}」？该分类下的链接也会被删除。`)) return;
+          deleteGroup(g.id).catch(() => undefined);
+        }}
         onSubmit={(name) => {
           const g = editingGroup;
           setEditingGroup(null);
@@ -391,12 +643,47 @@ export default function Admin() {
         }}
       />
 
+      <GroupModal
+        open={creatingSection}
+        title="新增二级分类"
+        initial={{ name: "" }}
+        onClose={() => setCreatingSection(false)}
+        onSubmit={(name) => {
+          setCreatingSection(false);
+          createSection(name).catch(() => undefined);
+        }}
+      />
+
+      <GroupModal
+        open={!!editingSection}
+        title="编辑二级分类"
+        initial={{ name: editingSection?.name ?? "" }}
+        onClose={() => setEditingSection(null)}
+        onDelete={() => {
+          const s = editingSection;
+          setEditingSection(null);
+          if (!s) return;
+          if (!confirm(`删除二级分类「${s.name}」？该分类内的链接会移动到未分组。`)) return;
+          deleteSection(s.id).catch(() => undefined);
+        }}
+        onSubmit={(name) => {
+          const s = editingSection;
+          setEditingSection(null);
+          if (!s) return;
+          updateSection(s.id, name).catch(() => undefined);
+        }}
+      />
+
       <LinkEditorModal
         open={creatingLink}
         mode="create"
         title="新增链接"
-        initial={{ title: "", url: "", description: "", icon: "" }}
-        onClose={() => setCreatingLink(false)}
+        sectionOptions={sectionOptionsForSelectedGroup}
+        initial={{ title: "", url: "", description: "", icon: "", sectionId: creatingLinkSectionId ?? "" }}
+        onClose={() => {
+          setCreatingLink(false);
+          setCreatingLinkSectionId(null);
+        }}
         onSubmit={(patch) => {
           setCreatingLink(false);
           createLink(patch).catch(() => undefined);
@@ -407,13 +694,22 @@ export default function Admin() {
         open={!!editingLink}
         mode="edit"
         title="编辑链接"
+        sectionOptions={sectionOptionsForSelectedGroup}
         initial={{
           title: editingLink?.title ?? "",
           url: editingLink?.url ?? "",
           description: editingLink?.description ?? "",
-          icon: editingLink?.icon ?? ""
+          icon: editingLink?.icon ?? "",
+          sectionId: editingLink?.sectionId ?? ""
         }}
         onClose={() => setEditingLink(null)}
+        onDelete={() => {
+          const l = editingLink;
+          setEditingLink(null);
+          if (!l) return;
+          if (!confirm(`删除链接「${l.title}」？`)) return;
+          deleteLink(l.id).catch(() => undefined);
+        }}
         onSubmit={(patch) => {
           const l = editingLink;
           setEditingLink(null);
@@ -462,6 +758,7 @@ function GroupRow({
           (selected ? "bg-white/12 dark:bg-white/8 border-white/12" : "bg-transparent border-transparent hover:bg-white/6 dark:hover:bg-white/6")
         }
         onClick={onSelect}
+        onDoubleClick={onEdit}
         disabled={!onSelect}
       >
         <div className={"font-medium truncate " + (enabled ? "" : "opacity-60")}>{group.name}</div>
@@ -471,10 +768,7 @@ function GroupRow({
         <Switch checked={enabled} disabled={busy || !onToggleEnabled} onCheckedChange={(v) => onToggleEnabled?.(v)} />
       </div>
 
-      <div className="ml-auto flex flex-none items-center gap-1">
-        <Button variant="ghost" className="h-9 w-9 px-0" onClick={onEdit} disabled={!onEdit} leftIcon={<Pencil size={16} />} />
-        <Button variant="destructive" className="h-9 w-9 px-0" onClick={onDelete} disabled={!onDelete} leftIcon={<Trash2 size={16} />} />
-      </div>
+      <div className="ml-auto flex flex-none items-center gap-1" />
     </div>
   );
 }
@@ -502,7 +796,7 @@ function LinkRow({
       }
     >
       <div className="pt-0.5 flex-none">{handle ?? <div className="h-9 w-9" />}</div>
-      <div className="min-w-[14rem] flex-1">
+      <div className="min-w-[14rem] flex-1" onDoubleClick={onEdit}>
         <div className="flex items-center gap-2">
           <LinkRowIcon url={link.url} icon={link.icon} />
           <div className="truncate text-sm font-semibold">{link.title}</div>
@@ -515,10 +809,7 @@ function LinkRow({
         <div className="mt-1 truncate text-xs text-muted">{link.url}</div>
         {link.description ? <div className="mt-1 line-clamp-2 text-xs text-muted">{link.description}</div> : null}
       </div>
-      <div className="ml-auto flex flex-none items-center gap-1">
-        <Button variant="ghost" className="h-9 w-9 px-0" onClick={onEdit} disabled={!onEdit} leftIcon={<Pencil size={16} />} />
-        <Button variant="destructive" className="h-9 w-9 px-0" onClick={onDelete} disabled={!onDelete} leftIcon={<Trash2 size={16} />} />
-      </div>
+      <div className="ml-auto flex flex-none items-center gap-1" />
     </div>
   );
 }
@@ -548,12 +839,14 @@ function GroupModal({
   title,
   initial,
   onClose,
+  onDelete,
   onSubmit
 }: {
   open: boolean;
   title: string;
   initial: { name: string };
   onClose: () => void;
+  onDelete?: () => void;
   onSubmit: (name: string) => void;
 }) {
   const [name, setName] = useState(initial.name);
@@ -571,10 +864,14 @@ function GroupModal({
             placeholder="例如：开发 / 设计 / 工具…"
           />
         </label>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            取消
-          </Button>
+        <div className="flex items-center justify-between gap-2">
+          {onDelete ? (
+            <Button variant="destructive" className="h-10 px-3" onClick={onDelete} leftIcon={<Trash2 size={18} />}>
+              删除
+            </Button>
+          ) : (
+            <div />
+          )}
           <Button variant="primary" onClick={() => onSubmit(name.trim())} disabled={!name.trim()}>
             确认
           </Button>
@@ -588,21 +885,26 @@ function LinkEditorModal({
   open,
   mode,
   title,
+  sectionOptions,
   initial,
   onClose,
+  onDelete,
   onSubmit
 }: {
   open: boolean;
   mode: "create" | "edit";
   title: string;
-  initial: { title: string; url: string; description: string; icon?: string };
+  sectionOptions: { id: string; label: string }[];
+  initial: { title: string; url: string; description: string; icon?: string; sectionId: string };
   onClose: () => void;
-  onSubmit: (patch: { title: string; url: string; description: string; icon: string }) => void;
+  onDelete?: () => void;
+  onSubmit: (patch: { title: string; url: string; description: string; icon: string; sectionId: string | null }) => void;
 }) {
   const [titleValue, setTitleValue] = useState(initial.title);
   const [urlValue, setUrlValue] = useState(initial.url);
   const [descValue, setDescValue] = useState(initial.description);
   const [iconValue, setIconValue] = useState(initial.icon ?? "");
+  const [sectionIdValue, setSectionIdValue] = useState(initial.sectionId);
 
   useEffect(() => {
     if (!open) {
@@ -611,6 +913,7 @@ function LinkEditorModal({
         setUrlValue("");
         setDescValue("");
         setIconValue("");
+        setSectionIdValue(initial.sectionId);
       }
       return;
     }
@@ -620,6 +923,7 @@ function LinkEditorModal({
       setUrlValue("");
       setDescValue("");
       setIconValue("");
+      setSectionIdValue(initial.sectionId);
       return;
     }
 
@@ -627,7 +931,8 @@ function LinkEditorModal({
     setUrlValue(initial.url);
     setDescValue(initial.description);
     setIconValue(initial.icon ?? "");
-  }, [open, mode, initial.title, initial.url, initial.description, initial.icon]);
+    setSectionIdValue(initial.sectionId);
+  }, [open, mode, initial.title, initial.url, initial.description, initial.icon, initial.sectionId]);
 
   return (
     <Modal open={open} title={title} onClose={onClose}>
@@ -654,6 +959,17 @@ function LinkEditorModal({
             }}
             className="glass w-full rounded-2xl px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
             placeholder="https://..."
+          />
+        </label>
+
+        <label className="block space-y-2">
+          <div className="text-sm font-medium text-fg/80">二级分类</div>
+          <AppleSelect
+            ariaLabel="二级分类"
+            value={sectionIdValue}
+            onChange={setSectionIdValue}
+            options={sectionOptions.map((o) => ({ value: o.id, label: o.label }))}
+            placeholder="未分组"
           />
         </label>
         <div className="flex items-start justify-between gap-3">
@@ -693,10 +1009,14 @@ function LinkEditorModal({
             placeholder="一句话说明用途…"
           />
         </label>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            取消
-          </Button>
+        <div className="flex items-center justify-between gap-2">
+          {mode === "edit" && onDelete ? (
+            <Button variant="destructive" className="h-10 px-3" onClick={onDelete} leftIcon={<Trash2 size={18} />}>
+              删除
+            </Button>
+          ) : (
+            <div />
+          )}
           <Button
             variant="primary"
             onClick={() =>
@@ -704,7 +1024,8 @@ function LinkEditorModal({
                 title: titleValue.trim(),
                 url: urlValue.trim(),
                 description: descValue.trim(),
-                icon: iconValue.trim()
+                icon: iconValue.trim(),
+                sectionId: sectionIdValue ? sectionIdValue : null
               })
             }
             disabled={!titleValue.trim() || !urlValue.trim()}

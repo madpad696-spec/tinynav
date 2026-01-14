@@ -4,3 +4,28 @@ dist
 .dev.vars
 *.log
 
+# Environment / secrets
+.env
+.env.*
+!.env.example
+.secrets
+.envrc
+.npmrc
+
+# Keys / certificates
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Cloudflare / Wrangler outputs
+_worker.bundle
+_worker.bundle.*
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db

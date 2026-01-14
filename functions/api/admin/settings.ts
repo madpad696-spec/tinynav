@@ -4,6 +4,7 @@ import { defaultSettings, json, loadData, normalizeData, normalizeSettings, requ
 const SettingsPatch = z.object({
   siteTitle: z.string().trim().min(1).max(40).optional(),
   siteSubtitle: z.string().trim().min(1).max(60).optional(),
+  homeTagline: z.string().trim().min(1).max(120).optional(),
   siteIconDataUrl: z.string().trim().max(360000).optional(),
   faviconDataUrl: z.string().trim().max(360000).optional(),
   siteIconFit: z.enum(["contain", "cover"]).optional()
@@ -51,6 +52,7 @@ export const onRequestPut: PagesFunction = async (ctx) => {
     ...current,
     ...(parsed.siteTitle != null ? { siteTitle: parsed.siteTitle } : null),
     ...(parsed.siteSubtitle != null ? { siteSubtitle: parsed.siteSubtitle } : null),
+    ...(parsed.homeTagline != null ? { homeTagline: parsed.homeTagline } : null),
     ...(parsed.siteIconDataUrl != null ? { siteIconDataUrl: parsed.siteIconDataUrl } : null),
     ...(parsed.faviconDataUrl != null ? { faviconDataUrl: parsed.faviconDataUrl } : null),
     ...(parsed.siteIconFit != null ? { siteIconFit: parsed.siteIconFit } : null)

@@ -112,12 +112,12 @@ function SortableRow({
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       onContextMenu={(e) => e.preventDefault()}
-      className="touch-none select-none [-webkit-user-select:none] cursor-grab active:cursor-grabbing text-muted hover:text-fg transition-colors"
+      className="touch-none select-none [-webkit-user-select:none] cursor-grab active:cursor-grabbing text-muted"
       style={{ WebkitTapHighlightColor: "transparent" }}
       {...attributes}
       {...listeners}
     >
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/6 shadow-none dark:bg-white/4">
         <GripVertical size={16} className="opacity-75 shrink-0" />
       </span>
     </button>

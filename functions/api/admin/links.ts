@@ -51,6 +51,7 @@ const IconUrl = z
 
 const CreateLinkBody = z.object({
   groupId: z.string().min(1),
+  sectionId: z.string().trim().min(1).optional(),
   title: z.string().trim().min(1).max(80),
   url: HttpUrl,
   description: z.string().trim().max(200).optional(),
@@ -76,12 +77,21 @@ export const onRequestPost: PagesFunction = async (ctx) => {
   const group = data.groups.find((g) => g.id === parsed.groupId);
   if (!group) return json({ error: "Group not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 
-  const inGroup = data.links.filter((l) => l.groupId === parsed.groupId);
-  const nextOrder = inGroup.length ? Math.max(...inGroup.map((l) => l.order)) + 1 : 0;
+  const rawSectionId = parsed.sectionId?.trim() ? parsed.sectionId.trim() : undefined;
+  const validSectionId =
+    rawSectionId && (data.sections ?? []).some((s) => s.id === rawSectionId && s.groupId === parsed.groupId)
+      ? rawSectionId
+      : undefined;
+
+  const inBucket = data.links.filter(
+    (l) => l.groupId === parsed.groupId && (l.sectionId?.trim() || undefined) === validSectionId
+  );
+  const nextOrder = inBucket.length ? Math.max(...inBucket.map((l) => l.order)) + 1 : 0;
   const icon = parsed.icon && parsed.icon.trim() ? parsed.icon.trim() : normalizeFaviconUrl(parsed.url, USE_FAVICON_SERVICE(env.USE_FAVICON_SERVICE));
   const link = {
     id: crypto.randomUUID(),
     groupId: parsed.groupId,
+    sectionId: validSectionId,
     title: parsed.title,
     url: parsed.url,
     icon,

@@ -22,20 +22,21 @@ export function Switch({
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={clsx(
-        "relative inline-flex h-7 w-12 items-center rounded-full border transition-colors " +
+        "relative inline-flex h-6 w-9 items-center rounded-full border p-px transition-colors " +
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 " +
           "focus-visible:ring-offset-bg disabled:opacity-50 disabled:pointer-events-none",
-        checked ? "bg-emerald-500/90 border-emerald-400/30" : "bg-white/10 dark:bg-white/8 border-white/14",
+        checked ? "bg-emerald-500/90 border-[#e5e7eb] dark:border-[#21252d]" : "bg-white/10 dark:bg-white/8 border-[#e5e7eb] dark:border-[#21252d]",
         className
       )}
       style={{ WebkitTapHighlightColor: "transparent" }}
     >
-      <motion.span
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,.20)]"
-        animate={{ x: checked ? 22 : 2 }}
-        transition={reduceMotion ? { duration: 0.12 } : { type: "spring", stiffness: 520, damping: 36 }}
-      />
+      <div className={clsx("flex h-full w-full items-center", checked ? "justify-end" : "justify-start")}>
+        <motion.span
+          layout
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,.20)]"
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 36 }}
+        />
+      </div>
     </button>
   );
 }
-

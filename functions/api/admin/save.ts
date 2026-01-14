@@ -20,7 +20,8 @@ export const onRequestPost: PagesFunction = async (ctx) => {
   const merged = normalizeData({
     ...existing,
     ...body,
-    settings: body?.settings ?? existing.settings
+    settings: body?.settings ?? existing.settings,
+    sections: Array.isArray(body.sections) ? body.sections : existing.sections
   });
 
   await saveData(env, merged);

@@ -8,23 +8,30 @@ type Env = {
 export type SiteSettings = {
   siteTitle: string;
   siteSubtitle: string;
+  homeTagline: string;
   siteIconDataUrl: string;
   faviconDataUrl: string;
   siteIconFit: "contain" | "cover";
 };
 
+export type CloudNavSection = { id: string; groupId: string; name: string; order: number };
+
+export type CloudNavLink = {
+  id: string;
+  groupId: string;
+  sectionId?: string;
+  title: string;
+  url: string;
+  icon?: string;
+  description?: string;
+  order: number;
+};
+
 export type CloudNavData = {
   settings?: SiteSettings;
   groups: { id: string; name: string; order: number; enabled?: boolean }[];
-  links: {
-    id: string;
-    groupId: string;
-    title: string;
-    url: string;
-    icon?: string;
-    description?: string;
-    order: number;
-  }[];
+  sections?: CloudNavSection[];
+  links: CloudNavLink[];
 };
 
 export const DATA_KEY = "cloudnav:data";
@@ -35,6 +42,7 @@ export const SESSION_DAYS = 7;
 export const defaultSettings: SiteSettings = {
   siteTitle: "AppleBar",
   siteSubtitle: "个人导航",
+  homeTagline: "轻盈、克制、随手可用。",
   siteIconDataUrl: "",
   faviconDataUrl: "",
   siteIconFit: "contain"
@@ -47,13 +55,14 @@ export const defaultSeedData: CloudNavData = {
     { id: "g-life", name: "日常", order: 1, enabled: true },
     { id: "g-ref", name: "参考", order: 2, enabled: true }
   ],
+  sections: [],
   links: [
     {
       id: "l-cf",
       groupId: "g-dev",
       title: "Cloudflare Docs",
       url: "https://developers.cloudflare.com/",
-      description: "Pages / Functions / Workers KV 官方文档",
+      description: "Pages / Functions / Workers KV 官方文档。",
       order: 0
     },
     {
@@ -260,6 +269,7 @@ export function normalizeSettings(input: CloudNavData["settings"]): SiteSettings
   const out: SiteSettings = {
     siteTitle: typeof s.siteTitle === "string" ? s.siteTitle.trim() : defaultSettings.siteTitle,
     siteSubtitle: typeof s.siteSubtitle === "string" ? s.siteSubtitle.trim() : defaultSettings.siteSubtitle,
+    homeTagline: typeof s.homeTagline === "string" ? s.homeTagline.trim() : defaultSettings.homeTagline,
     siteIconDataUrl:
       typeof s.siteIconDataUrl === "string"
         ? s.siteIconDataUrl.trim()
@@ -277,32 +287,69 @@ export function normalizeSettings(input: CloudNavData["settings"]): SiteSettings
 
   if (!out.siteTitle) out.siteTitle = defaultSettings.siteTitle;
   if (!out.siteSubtitle) out.siteSubtitle = defaultSettings.siteSubtitle;
+  if (!out.homeTagline) out.homeTagline = defaultSettings.homeTagline;
   return out;
 }
 
 export function normalizeData(data: CloudNavData): CloudNavData {
   const settings = normalizeSettings(data.settings);
+
   const groups = data.groups.slice().sort((a, b) => a.order - b.order);
-  for (let i = 0; i < groups.length; i++)
+  for (let i = 0; i < groups.length; i++) {
     groups[i] = { ...groups[i], order: i, enabled: typeof groups[i].enabled === "boolean" ? groups[i].enabled : true };
+  }
 
   const groupIds = new Set(groups.map((g) => g.id));
-  const keptLinks = data.links.filter((l) => groupIds.has(l.groupId));
 
-  const byGroup = new Map<string, typeof keptLinks>();
-  for (const l of keptLinks) {
-    const arr = byGroup.get(l.groupId) ?? [];
-    arr.push(l);
-    byGroup.set(l.groupId, arr);
+  const sectionsInput = (data.sections ?? []).filter((s) => groupIds.has(s.groupId));
+  const byGroupSections = new Map<string, CloudNavSection[]>();
+  for (const s of sectionsInput) {
+    const arr = byGroupSections.get(s.groupId) ?? [];
+    arr.push(s);
+    byGroupSections.set(s.groupId, arr);
   }
 
-  const links: CloudNavData["links"] = [];
+  const sections: CloudNavSection[] = [];
+  const sectionIdsByGroup = new Map<string, Set<string>>();
   for (const g of groups) {
-    const arr = (byGroup.get(g.id) ?? []).slice().sort((a, b) => a.order - b.order);
-    for (let i = 0; i < arr.length; i++) links.push({ ...arr[i], order: i });
+    const arr = (byGroupSections.get(g.id) ?? []).slice().sort((a, b) => a.order - b.order);
+    for (let i = 0; i < arr.length; i++) sections.push({ ...arr[i], order: i });
+    sectionIdsByGroup.set(g.id, new Set(arr.map((s) => s.id)));
   }
 
-  return { settings, groups, links };
+  const keptLinks = data.links
+    .filter((l) => groupIds.has(l.groupId))
+    .map((l) => {
+      const raw = typeof (l as any).sectionId === "string" ? String((l as any).sectionId).trim() : "";
+      if (!raw) return { ...l, sectionId: undefined };
+      const allowed = sectionIdsByGroup.get(l.groupId);
+      if (!allowed || !allowed.has(raw)) return { ...l, sectionId: undefined };
+      return { ...l, sectionId: raw };
+    });
+
+  const links: CloudNavLink[] = [];
+  for (const g of groups) {
+    const inGroup = keptLinks.filter((l) => l.groupId === g.id);
+    const groupSectionIds = sections.filter((s) => s.groupId === g.id).map((s) => s.id);
+
+    const buckets = new Map<string, CloudNavLink[]>();
+    for (const l of inGroup) {
+      const key = l.sectionId?.trim() ? l.sectionId.trim() : "__default__";
+      const arr = buckets.get(key) ?? [];
+      arr.push(l);
+      buckets.set(key, arr);
+    }
+
+    for (const sectionId of groupSectionIds) {
+      const arr = (buckets.get(sectionId) ?? []).slice().sort((a, b) => a.order - b.order);
+      for (let i = 0; i < arr.length; i++) links.push({ ...arr[i], order: i });
+    }
+
+    const def = (buckets.get("__default__") ?? []).slice().sort((a, b) => a.order - b.order);
+    for (let i = 0; i < def.length; i++) links.push({ ...def[i], order: i, sectionId: undefined });
+  }
+
+  return { settings, groups, sections, links };
 }
 
 export function getClientIp(req: Request) {

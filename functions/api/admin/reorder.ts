@@ -3,8 +3,16 @@ import { json, loadData, normalizeData, requireAuth, saveData } from "../_utils"
 
 const ReorderBody = z.object({
   groups: z.array(z.object({ id: z.string().min(1), order: z.number().int().min(0) })).optional(),
+  sections: z.array(z.object({ id: z.string().min(1), order: z.number().int().min(0) })).optional(),
   links: z
-    .array(z.object({ id: z.string().min(1), order: z.number().int().min(0), groupId: z.string().min(1).optional() }))
+    .array(
+      z.object({
+        id: z.string().min(1),
+        order: z.number().int().min(0),
+        groupId: z.string().min(1).optional(),
+        sectionId: z.string().trim().min(1).optional().nullable()
+      })
+    )
     .optional()
 });
 
@@ -26,10 +34,17 @@ export const onRequestPost: PagesFunction = async (ctx) => {
   const data = await loadData(env);
 
   const groupPatch = new Map((parsed.groups ?? []).map((g) => [g.id, g.order] as const));
-  const linkPatch = new Map((parsed.links ?? []).map((l) => [l.id, { order: l.order, groupId: l.groupId }] as const));
+  const sectionPatch = new Map((parsed.sections ?? []).map((s) => [s.id, s.order] as const));
+  const linkPatch = new Map(
+    (parsed.links ?? []).map((l) => [l.id, { order: l.order, groupId: l.groupId, sectionId: l.sectionId }] as const)
+  );
 
   if (groupPatch.size) {
     data.groups = data.groups.map((g) => (groupPatch.has(g.id) ? { ...g, order: groupPatch.get(g.id)! } : g));
+  }
+
+  if (sectionPatch.size) {
+    data.sections = (data.sections ?? []).map((s) => (sectionPatch.has(s.id) ? { ...s, order: sectionPatch.get(s.id)! } : s));
   }
 
   if (linkPatch.size) {
@@ -37,7 +52,8 @@ export const onRequestPost: PagesFunction = async (ctx) => {
       const p = linkPatch.get(l.id);
       if (!p) return l;
       const nextGroupId = p.groupId ?? l.groupId;
-      return { ...l, groupId: nextGroupId, order: p.order };
+      const nextSectionId = p.sectionId === null || p.sectionId === "" ? undefined : p.sectionId;
+      return { ...l, groupId: nextGroupId, sectionId: nextSectionId, order: p.order };
     });
   }
 

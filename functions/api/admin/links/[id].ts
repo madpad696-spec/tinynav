@@ -52,6 +52,7 @@ const IconUrl = z
 const UpdateLinkBody = z
   .object({
     groupId: z.string().min(1).optional(),
+    sectionId: z.string().trim().min(1).optional().nullable(),
     title: z.string().trim().min(1).max(80).optional(),
     url: HttpUrl.optional(),
     description: z.string().trim().max(200).optional(),
@@ -87,6 +88,12 @@ export const onRequestPut: PagesFunction = async (ctx) => {
     return json({ error: "Group not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 
+  const rawSectionId = parsed.sectionId === null || parsed.sectionId === "" ? undefined : parsed.sectionId;
+  const nextSectionId =
+    rawSectionId && (data.sections ?? []).some((s) => s.id === rawSectionId && s.groupId === nextGroupId)
+      ? rawSectionId
+      : undefined;
+
   const nextUrl = parsed.url ?? current.url;
   const iconFromBody = typeof parsed.icon === "string" ? parsed.icon : undefined;
   const icon =
@@ -96,13 +103,24 @@ export const onRequestPut: PagesFunction = async (ctx) => {
         ? iconFromBody.trim()
         : normalizeFaviconUrl(nextUrl, USE_FAVICON_SERVICE(env.USE_FAVICON_SERVICE));
 
+  const movedBucket = nextGroupId !== current.groupId || nextSectionId !== (current.sectionId?.trim() || undefined);
+  const nextOrder = (() => {
+    if (!movedBucket) return current.order;
+    const bucket = data.links.filter(
+      (l) => l.groupId === nextGroupId && (l.sectionId?.trim() || undefined) === nextSectionId
+    );
+    return bucket.length ? Math.max(...bucket.map((l) => l.order)) + 1 : 0;
+  })();
+
   const updated = {
     ...current,
     ...parsed,
     groupId: nextGroupId,
+    sectionId: nextSectionId,
     url: nextUrl,
     icon,
     description: parsed.description === "" ? undefined : parsed.description ?? current.description,
+    order: nextOrder
   };
 
   data.links[idx] = updated;
@@ -126,7 +144,7 @@ export const onRequestDelete: PagesFunction = async (ctx) => {
   const links = data.links.filter((l) => l.id !== id);
   if (links.length === before) return json({ error: "Link not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 
-  const normalized = normalizeData({ groups: data.groups, links });
+  const normalized = normalizeData({ ...data, links });
   await saveData(env, normalized);
   return json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 };

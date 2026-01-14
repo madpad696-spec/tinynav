@@ -3,6 +3,7 @@ import type { SiteSettings } from "../types";
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteTitle: "AppleBar",
   siteSubtitle: "个人导航",
+  homeTagline: "轻盈、克制、随手可用。",
   siteIconDataUrl: "",
   faviconDataUrl: "",
   siteIconFit: "contain"
@@ -13,6 +14,7 @@ export function normalizeSiteSettings(input?: Partial<SiteSettings> | null): Sit
   const out: SiteSettings = {
     siteTitle: typeof s.siteTitle === "string" ? s.siteTitle.trim() : DEFAULT_SITE_SETTINGS.siteTitle,
     siteSubtitle: typeof s.siteSubtitle === "string" ? s.siteSubtitle.trim() : DEFAULT_SITE_SETTINGS.siteSubtitle,
+    homeTagline: typeof s.homeTagline === "string" ? s.homeTagline.trim() : DEFAULT_SITE_SETTINGS.homeTagline,
     siteIconDataUrl:
       typeof s.siteIconDataUrl === "string"
         ? s.siteIconDataUrl.trim()
@@ -29,6 +31,7 @@ export function normalizeSiteSettings(input?: Partial<SiteSettings> | null): Sit
   };
   if (!out.siteTitle) out.siteTitle = DEFAULT_SITE_SETTINGS.siteTitle;
   if (!out.siteSubtitle) out.siteSubtitle = DEFAULT_SITE_SETTINGS.siteSubtitle;
+  if (!out.homeTagline) out.homeTagline = DEFAULT_SITE_SETTINGS.homeTagline;
   return out;
 }
 

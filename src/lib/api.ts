@@ -76,6 +76,7 @@ export const api = {
     links: {
       create: (input: {
         groupId: string;
+        sectionId?: string;
         title: string;
         url: string;
         description?: string;
@@ -85,12 +86,13 @@ export const api = {
           method: "POST",
           body: JSON.stringify({
             ...input,
+            sectionId: input.sectionId || undefined,
             url: isHttpOrHttpsUrl(input.url) ? input.url : normalizeHttpUrl(input.url)
           })
         }),
       update: (
         id: string,
-        patch: { title?: string; url?: string; description?: string; icon?: string; groupId?: string }
+        patch: { title?: string; url?: string; description?: string; icon?: string; groupId?: string; sectionId?: string | null }
       ) =>
         jsonFetch<{ ok: true; link: CloudNavData["links"][number] }>(`/api/admin/links/${id}`, {
           method: "PUT",
@@ -104,9 +106,26 @@ export const api = {
           method: "DELETE"
         })
     },
+    sections: {
+      create: (input: { groupId: string; name: string }) =>
+        jsonFetch<{ ok: true; section: NonNullable<CloudNavData["sections"]>[number] }>("/api/admin/sections", {
+          method: "POST",
+          body: JSON.stringify(input)
+        }),
+      update: (id: string, patch: { name?: string; order?: number }) =>
+        jsonFetch<{ ok: true; section: NonNullable<CloudNavData["sections"]>[number] }>(`/api/admin/sections/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(patch)
+        }),
+      delete: (id: string) =>
+        jsonFetch<{ ok: true }>(`/api/admin/sections/${id}`, {
+          method: "DELETE"
+        })
+    },
     reorder: (body: {
       groups?: { id: string; order: number }[];
-      links?: { id: string; order: number; groupId?: string }[];
+      sections?: { id: string; order: number }[];
+      links?: { id: string; order: number; groupId?: string; sectionId?: string | null }[];
     }) => jsonFetch<{ ok: true }>("/api/admin/reorder", { method: "POST", body: JSON.stringify(body) })
   }
 };

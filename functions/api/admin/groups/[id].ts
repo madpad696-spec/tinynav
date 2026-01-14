@@ -56,7 +56,8 @@ export const onRequestDelete: PagesFunction = async (ctx) => {
   if (groups.length === before) return json({ error: "Group not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 
   const links = data.links.filter((l) => l.groupId !== id);
-  const normalized = normalizeData({ groups, links });
+  const sections = (data.sections ?? []).filter((s) => s.groupId !== id);
+  const normalized = normalizeData({ ...data, groups, sections, links });
   await saveData(env, normalized);
   return json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 };

@@ -1,7 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Globe } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { Card } from "../components/Card";
 import { Navbar } from "../components/Navbar";
 import { SidebarCategoryPicker } from "../components/SidebarCategoryPicker";
@@ -9,8 +8,10 @@ import { SearchBar } from "../components/SearchBar";
 import { api } from "../lib/api";
 import { useMe } from "../lib/auth";
 import { faviconServiceUrl, normalizeFaviconUrl } from "../lib/favicon";
-import { applyFavicon } from "../lib/siteSettings";
-import type { CloudNavData, Group, LinkItem } from "../types";
+import { applyFavicon, normalizeSiteSettings } from "../lib/siteSettings";
+import type { CloudNavData, Group, LinkItem, Section } from "../types";
+
+const DEFAULT_SECTION_ID = "__default__";
 
 function normalizeText(s: string) {
   return s.trim().toLowerCase();
@@ -34,11 +35,11 @@ function safeHostname(url: string) {
 export default function Home() {
   const reduceMotion = useReducedMotion();
   const { authed } = useMe();
-  const [params, setParams] = useSearchParams();
   const [data, setData] = useState<CloudNavData | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -51,6 +52,8 @@ export default function Home() {
     applyFavicon(data?.settings?.faviconDataUrl);
   }, [data?.settings?.faviconDataUrl]);
 
+  const site = useMemo(() => normalizeSiteSettings(data?.settings), [data?.settings]);
+
   const groups = useMemo(() => {
     const g = (data?.groups ?? [])
       .filter((x) => x.enabled ?? true)
@@ -62,23 +65,90 @@ export default function Home() {
   const enabledGroupIds = useMemo(() => new Set(groups.map((g) => g.id)), [groups]);
 
   const allLinks = useMemo(() => {
-    return (data?.links ?? []).filter((l) => enabledGroupIds.has(l.groupId)).slice().sort((a, b) => a.order - b.order);
+    return (data?.links ?? []).filter((l) => enabledGroupIds.has(l.groupId)).slice();
   }, [data, enabledGroupIds]);
+
+  const allSections = useMemo(() => {
+    return (data?.sections ?? []).filter((s) => enabledGroupIds.has(s.groupId)).slice().sort((a, b) => a.order - b.order);
+  }, [data, enabledGroupIds]);
+
+  const sectionsByGroupId = useMemo(() => {
+    const m = new Map<string, Section[]>();
+    for (const s of allSections) {
+      const arr = m.get(s.groupId) ?? [];
+      arr.push(s);
+      m.set(s.groupId, arr);
+    }
+    for (const [gid, arr] of m) {
+      arr.sort((a, b) => a.order - b.order);
+      m.set(gid, arr);
+    }
+    return m;
+  }, [allSections]);
+
+  const sectionOrderById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of allSections) m.set(s.id, s.order);
+    return m;
+  }, [allSections]);
+
+  function compareLinkWithSections(a: LinkItem, b: LinkItem) {
+    const aSec = a.sectionId?.trim() ? sectionOrderById.get(a.sectionId.trim()) ?? 9998 : 9999;
+    const bSec = b.sectionId?.trim() ? sectionOrderById.get(b.sectionId.trim()) ?? 9998 : 9999;
+    if (aSec !== bSec) return aSec - bSec;
+    return a.order - b.order;
+  }
+
+  function groupLinksBySection(groupId: string, links: LinkItem[]) {
+    const sections = sectionsByGroupId.get(groupId) ?? [];
+    if (!sections.length) {
+      return { enabled: false, blocks: [] as { key: string; title: string; links: LinkItem[] }[] };
+    }
+
+    const sectionIdSet = new Set(sections.map((s) => s.id));
+    const bySection = new Map<string, LinkItem[]>();
+    for (const l of links) {
+      const sid = l.sectionId?.trim();
+      const key = sid && sectionIdSet.has(sid) ? sid : DEFAULT_SECTION_ID;
+      const arr = bySection.get(key) ?? [];
+      arr.push(l);
+      bySection.set(key, arr);
+    }
+
+    const blocks: { key: string; title: string; links: LinkItem[] }[] = [];
+    for (const s of sections) {
+      const arr = bySection.get(s.id);
+      if (!arr?.length) continue;
+      blocks.push({ key: s.id, title: s.name, links: arr });
+    }
+    const ungrouped = bySection.get(DEFAULT_SECTION_ID);
+    if (ungrouped?.length) blocks.push({ key: DEFAULT_SECTION_ID, title: "未分组", links: ungrouped });
+
+    return { enabled: true, blocks };
+  }
 
   useEffect(() => {
     if (!groups.length) {
       setSelectedGroupId(null);
+      setHoveredGroupId(null);
       return;
     }
 
-    const fromQuery = params.get("group");
-    if (fromQuery === "__all__" || (fromQuery && groups.some((g) => g.id === fromQuery))) {
-      setSelectedGroupId(fromQuery);
-      return;
-    }
+    const storageKey = "cloudnav:selectedGroupId";
+    const saved = (() => {
+      try {
+        return localStorage.getItem(storageKey);
+      } catch {
+        return null;
+      }
+    })();
 
-    setSelectedGroupId((prev) => (prev && groups.some((g) => g.id === prev) ? prev : groups[0]!.id));
-  }, [groups, params]);
+    const isValid = (id: string | null) => id === "__all__" || (!!id && groups.some((g) => g.id === id));
+    const initial = isValid(saved) ? saved : "__all__";
+
+    setSelectedGroupId((prev) => (isValid(prev) ? prev : initial));
+    setHoveredGroupId((prev) => (isValid(prev) ? prev : initial));
+  }, [groups]);
 
   const isAll = selectedGroupId === "__all__";
 
@@ -101,7 +171,7 @@ export default function Home() {
     return (data?.links ?? [])
       .filter((l) => l.groupId === selectedGroup.id)
       .slice()
-      .sort((a, b) => a.order - b.order);
+      .sort(compareLinkWithSections);
   }, [data, selectedGroup]);
 
   const filteredLinks = useMemo(() => {
@@ -117,7 +187,7 @@ export default function Home() {
       arr.push(l);
       map.set(l.groupId, arr);
     }
-    for (const arr of map.values()) arr.sort((a, b) => a.order - b.order);
+    for (const arr of map.values()) arr.sort(compareLinkWithSections);
     return map;
   }, [allLinks, query]);
 
@@ -138,7 +208,7 @@ export default function Home() {
         >
           <div className="space-y-1">
             <div className="text-2xl font-semibold tracking-tight">导航</div>
-            <div className="text-sm text-muted">轻盈、克制、随手可用。</div>
+            <div className="text-sm text-muted">{site.homeTagline}</div>
           </div>
 
           {error ? <div className="glass rounded-2xl p-4 text-sm text-danger">{error}</div> : null}
@@ -148,16 +218,16 @@ export default function Home() {
               <SidebarCategoryPicker
                 groups={sidebarGroups}
                 selectedId={selectedGroupId}
+                hoveredId={hoveredGroupId ?? selectedGroupId}
+                onHover={(id) => setHoveredGroupId(id)}
                 onSelect={(id) => {
                   setSelectedGroupId(id);
-                  setParams(
-                    (prev) => {
-                      const next = new URLSearchParams(prev);
-                      next.set("group", id);
-                      return next;
-                    },
-                    { replace: true }
-                  );
+                  setHoveredGroupId(id);
+                  try {
+                    localStorage.setItem("cloudnav:selectedGroupId", id);
+                  } catch {
+                    // ignore
+                  }
                 }}
                 rowHeight={42}
               />
@@ -187,31 +257,61 @@ export default function Home() {
                   >
                     {visibleGroupsAll.map((g) => {
                       const links = linksByGroupAll.get(g.id) ?? [];
+                      const sectioned = groupLinksBySection(g.id, links);
                       return (
                         <motion.section key={g.id} layout className="space-y-3">
                           <div className="flex items-center justify-between">
                             <div className="text-sm font-semibold text-fg/90">{g.name}</div>
                             <div className="text-xs text-muted">{links.length} 项</div>
                           </div>
-                          <motion.div layout className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {links.map((l) => (
-                              <Card key={l.id} as="a" href={l.url} target="_blank" rel="noreferrer" className="p-4">
-                                <div className="flex items-start gap-3">
-                                  <LinkIcon url={l.url} icon={l.icon} reduceMotion={!!reduceMotion} />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="truncate text-sm font-semibold">{l.title}</div>
+                          {sectioned.enabled ? (
+                            <div className="space-y-4">
+                              {sectioned.blocks.map((b) => (
+                                <motion.section key={b.key} layout className="space-y-2">
+                                  <div className="text-xs font-semibold text-fg/70">{b.title}</div>
+                                  <motion.div layout className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    {b.links.map((l) => (
+                                      <Card key={l.id} as="a" href={l.url} target="_blank" rel="noreferrer" className="p-4">
+                                        <div className="flex items-start gap-3">
+                                          <LinkIcon url={l.url} icon={l.icon} reduceMotion={!!reduceMotion} />
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                              <div className="truncate text-sm font-semibold">{l.title}</div>
+                                            </div>
+                                            {l.description ? (
+                                              <div className="mt-1 line-clamp-2 text-xs text-muted">{l.description}</div>
+                                            ) : (
+                                              <div className="mt-1 truncate text-xs text-muted">{safeHostname(l.url)}</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </Card>
+                                    ))}
+                                  </motion.div>
+                                </motion.section>
+                              ))}
+                            </div>
+                          ) : (
+                            <motion.div layout className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {links.map((l) => (
+                                <Card key={l.id} as="a" href={l.url} target="_blank" rel="noreferrer" className="p-4">
+                                  <div className="flex items-start gap-3">
+                                    <LinkIcon url={l.url} icon={l.icon} reduceMotion={!!reduceMotion} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="truncate text-sm font-semibold">{l.title}</div>
+                                      </div>
+                                      {l.description ? (
+                                        <div className="mt-1 line-clamp-2 text-xs text-muted">{l.description}</div>
+                                      ) : (
+                                        <div className="mt-1 truncate text-xs text-muted">{safeHostname(l.url)}</div>
+                                      )}
                                     </div>
-                                    {l.description ? (
-                                      <div className="mt-1 line-clamp-2 text-xs text-muted">{l.description}</div>
-                                    ) : (
-                                      <div className="mt-1 truncate text-xs text-muted">{safeHostname(l.url)}</div>
-                                    )}
                                   </div>
-                                </div>
-                              </Card>
-                            ))}
-                          </motion.div>
+                                </Card>
+                              ))}
+                            </motion.div>
+                          )}
                         </motion.section>
                       );
                     })}
@@ -230,25 +330,58 @@ export default function Home() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={reduceMotion ? { duration: 0.12 } : { type: "spring", stiffness: 420, damping: 34 }}
-                      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                      className="space-y-4"
                     >
-                      {filteredLinks.map((l) => (
-                        <Card key={l.id} as="a" href={l.url} target="_blank" rel="noreferrer" className="p-4">
-                          <div className="flex items-start gap-3">
-                            <LinkIcon url={l.url} icon={l.icon} reduceMotion={!!reduceMotion} />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="truncate text-sm font-semibold">{l.title}</div>
-                              </div>
-                              {l.description ? (
-                                <div className="mt-1 line-clamp-2 text-xs text-muted">{l.description}</div>
-                              ) : (
-                                <div className="mt-1 truncate text-xs text-muted">{safeHostname(l.url)}</div>
-                              )}
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
+                      {selectedGroup ? (() => {
+                        const sectioned = groupLinksBySection(selectedGroup.id, filteredLinks);
+                        if (sectioned.enabled) {
+                          return sectioned.blocks.map((b) => (
+                            <motion.section key={b.key} layout className="space-y-2">
+                              <div className="text-xs font-semibold text-fg/70">{b.title}</div>
+                              <motion.div layout className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                {b.links.map((l) => (
+                                  <Card key={l.id} as="a" href={l.url} target="_blank" rel="noreferrer" className="p-4">
+                                    <div className="flex items-start gap-3">
+                                      <LinkIcon url={l.url} icon={l.icon} reduceMotion={!!reduceMotion} />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="truncate text-sm font-semibold">{l.title}</div>
+                                        </div>
+                                        {l.description ? (
+                                          <div className="mt-1 line-clamp-2 text-xs text-muted">{l.description}</div>
+                                        ) : (
+                                          <div className="mt-1 truncate text-xs text-muted">{safeHostname(l.url)}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </Card>
+                                ))}
+                              </motion.div>
+                            </motion.section>
+                          ));
+                        }
+                        return (
+                          <motion.div layout className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {filteredLinks.map((l) => (
+                              <Card key={l.id} as="a" href={l.url} target="_blank" rel="noreferrer" className="p-4">
+                                <div className="flex items-start gap-3">
+                                  <LinkIcon url={l.url} icon={l.icon} reduceMotion={!!reduceMotion} />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="truncate text-sm font-semibold">{l.title}</div>
+                                    </div>
+                                    {l.description ? (
+                                      <div className="mt-1 line-clamp-2 text-xs text-muted">{l.description}</div>
+                                    ) : (
+                                      <div className="mt-1 truncate text-xs text-muted">{safeHostname(l.url)}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
+                          </motion.div>
+                        );
+                      })() : null}
                     </motion.div>
                   </AnimatePresence>
 

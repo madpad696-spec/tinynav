@@ -14,6 +14,10 @@
     --danger: 239 68 68;
   }
 
+  html {
+    font-size: 18px;
+  }
+
   html.dark {
     --bg: 11 12 15;
     --fg: 243 244 246;
