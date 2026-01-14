@@ -1,4 +1,4 @@
-# AppleBar（Apple-like 个人导航站）
+# TinyNav（Apple-like 个人导航站）
 
 本项目是一个 **Cloudflare Workers（静态站 + API 一体）** 的导航站：
 - 前端：Vite 构建输出到 `dist/`
@@ -73,7 +73,7 @@ DO 中保存单 key：`cloudnav:data`：
 ```json
 {
   "settings": {
-    "siteTitle": "AppleBar",
+    "siteTitle": "TinyNav",
     "siteSubtitle": "个人导航",
     "homeTagline": "轻盈、克制、随手可用。",
     "siteIconDataUrl": "",
@@ -85,4 +85,3 @@ DO 中保存单 key：`cloudnav:data`：
   "links": []
 }
 ```
-

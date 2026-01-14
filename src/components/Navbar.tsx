@@ -20,7 +20,7 @@ export function Navbar({ authed, settings }: { authed: boolean; settings?: SiteS
   const s = useMemo(() => normalizeSiteSettings(settings), [settings]);
 
   useEffect(() => {
-    document.title = s.siteTitle || "AppleBar";
+    document.title = s.siteTitle || "TinyNav";
   }, [s.siteTitle]);
 
   useEffect(() => {

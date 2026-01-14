@@ -1,7 +1,7 @@
 import type { SiteSettings } from "../types";
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
-  siteTitle: "AppleBar",
+  siteTitle: "TinyNav",
   siteSubtitle: "个人导航",
   homeTagline: "轻盈、克制、随手可用。",
   siteIconDataUrl: "",

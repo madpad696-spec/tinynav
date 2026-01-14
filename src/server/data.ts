@@ -35,7 +35,7 @@ export const SESSION_COOKIE = "cloudnav_session";
 export const SESSION_DAYS = 7;
 
 export const defaultSettings: SiteSettings = {
-  siteTitle: "AppleBar",
+  siteTitle: "TinyNav",
   siteSubtitle: "个人导航",
   homeTagline: "轻盈、克制、随手可用。",
   siteIconDataUrl: "",
@@ -78,4 +78,3 @@ export const defaultSeedData: CloudNavData = {
     }
   ]
 };
-

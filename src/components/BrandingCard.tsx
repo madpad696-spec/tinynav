@@ -289,7 +289,7 @@ export function BrandingCard({
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-7 space-y-4">
-          <Field label="站点标题" value={siteTitle} onChange={setSiteTitle} placeholder="AppleBar" />
+          <Field label="站点标题" value={siteTitle} onChange={setSiteTitle} placeholder="TinyNav" />
           <Field label="副标题" value={siteSubtitle} onChange={setSiteSubtitle} placeholder="个人导航" />
           <Field label="主页标语" value={homeTagline} onChange={setHomeTagline} placeholder="轻盈、克制、随手可用。" />
 
