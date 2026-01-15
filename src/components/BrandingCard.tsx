@@ -268,22 +268,20 @@ export function BrandingCard({
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
-            className="h-9 px-3"
+            className="h-9 w-9 px-0"
+            aria-label="恢复默认"
             leftIcon={<RotateCcw size={18} />}
             onClick={reset}
             disabled={busy || disabled}
-          >
-            恢复默认
-          </Button>
+          />
           <Button
             variant="primary"
-            className="h-9 px-3"
+            className="h-9 w-9 px-0"
+            aria-label="保存"
             leftIcon={<Save size={18} />}
             onClick={save}
             disabled={busy || disabled || !siteTitle.trim() || !siteSubtitle.trim()}
-          >
-            保存
-          </Button>
+          />
         </div>
       </div>
 
@@ -459,13 +457,6 @@ function UploadField({
   clearText?: string;
   children: React.ReactNode;
 }) {
-  const sizeText =
-    typeof info.width === "number" && typeof info.height === "number" ? `${info.width}×${info.height}` : "—";
-  const sizeTextWithFrom =
-    info.trimmed && typeof info.originalWidth === "number" && typeof info.originalHeight === "number" && sizeText !== "—"
-      ? `${info.originalWidth}×${info.originalHeight} → ${sizeText}`
-      : sizeText;
-  const kbText = typeof info.bytes === "number" ? `${Math.ceil(info.bytes / 1024)}KB` : "—";
   const has = !!info.src.trim();
   return (
     <div className="rounded-2xl border border-white/10 bg-white/6 dark:bg-white/4 p-3">
@@ -474,19 +465,19 @@ function UploadField({
         <div className="min-w-0">
           <div className="text-sm font-medium text-fg/80">{title}</div>
           <div className="mt-1 text-xs text-muted">{hint}</div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className="rounded-full border border-white/10 bg-white/6 dark:bg-white/5 px-2 py-0.5">尺寸 {sizeTextWithFrom}</span>
-            <span className="rounded-full border border-white/10 bg-white/6 dark:bg-white/5 px-2 py-0.5">大小 {kbText}</span>
-          </div>
         </div>
         <div className="flex items-center gap-2">
           <SquareIcon src={info.src} size="md" />
           <div className="flex flex-col gap-2">
-            <Button variant="secondary" className="h-9 px-3" leftIcon={<Upload size={18} />} onClick={onPick}>
-              上传
-            </Button>
             <Button
-              variant="ghost"
+              variant="secondary"
+              className="h-9 w-9 px-0"
+              aria-label={`上传：${title}`}
+              leftIcon={<Upload size={18} />}
+              onClick={onPick}
+            />
+            <Button
+              variant="secondary"
               className="h-9 w-9 px-0"
               aria-label={clearText}
               leftIcon={/恢复默认/.test(clearText) ? <RotateCcw size={18} /> : <Eraser size={18} />}
