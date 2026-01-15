@@ -19,7 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, ChevronRight, GripVertical, Plus } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { LinkItem, Section } from "../../types";
 import { Button } from "../Button";
 
@@ -141,9 +141,6 @@ export function SectionedLinksPanel({
   const [active, setActive] = useState<ActiveDrag | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const createMenuTriggerRef = useRef<HTMLDivElement | null>(null);
-  const createMenuPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setSectionOrder(realSections.map((s) => s.id));
@@ -165,30 +162,6 @@ export function SectionedLinksPanel({
     setCollapsed((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
   }
 
-  useEffect(() => {
-    if (!createMenuOpen) return;
-
-    const onPointerDownCapture = (e: PointerEvent) => {
-      const triggerEl = createMenuTriggerRef.current;
-      const panelEl = createMenuPanelRef.current;
-      if (!triggerEl || !panelEl) return;
-      if (!(e.target instanceof Node)) return;
-      if (triggerEl.contains(e.target)) return;
-      if (panelEl.contains(e.target)) return;
-      setCreateMenuOpen(false);
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCreateMenuOpen(false);
-    };
-
-    document.addEventListener("pointerdown", onPointerDownCapture, true);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDownCapture, true);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [createMenuOpen]);
 
   function sectionForSortableId(raw: string) {
     const parsed = parseId(raw);
@@ -364,58 +337,14 @@ export function SectionedLinksPanel({
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold">{groupName ? `链接 · ${groupName}` : "链接"}</div>
         <div className="flex items-center gap-2">
-          <div className="relative" ref={createMenuTriggerRef}>
-            <Button
-              variant="secondary"
-              className="h-9 w-9 px-0"
-              aria-label="Create"
-              onClick={() => setCreateMenuOpen((v) => !v)}
-              disabled={busy}
-              leftIcon={<Plus size={18} />}
-            />
-            <AnimatePresence>
-              {createMenuOpen ? (
-                <motion.div
-                  ref={createMenuPanelRef}
-                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
-                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
-                  transition={reduceMotion ? { duration: 0.12 } : { type: "spring", stiffness: 420, damping: 34 }}
-                  className="absolute right-0 mt-2 w-44 rounded-2xl glass-strong p-2 shadow-[0_30px_90px_rgba(0,0,0,.18)] dark:shadow-[0_30px_110px_rgba(0,0,0,.55)]"
-                  role="menu"
-                >
-                  <div className="space-y-1">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      leftIcon={<Plus size={18} />}
-                      onClick={() => {
-                        setCreateMenuOpen(false);
-                        onCreateSection();
-                      }}
-                      disabled={busy}
-                      role="menuitem"
-                    >
-                      新增二级分类
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      leftIcon={<Plus size={18} />}
-                      onClick={() => {
-                        setCreateMenuOpen(false);
-                        onCreateLink(null);
-                      }}
-                      disabled={busy}
-                      role="menuitem"
-                    >
-                      新增链接
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
+          <Button
+            variant="secondary"
+            className="h-9 w-9 px-0 shadow-none hover:shadow-none"
+            aria-label="Create section"
+            onClick={() => onCreateSection()}
+            disabled={busy}
+            leftIcon={<Plus size={18} />}
+          />
         </div>
       </div>
 
@@ -485,8 +414,8 @@ export function SectionedLinksPanel({
                     leftIcon={isCollapsed(DEFAULT_SECTION_ID) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                   />
                   <Button
-                    variant="secondary"
-                    className="h-9 w-9 px-0"
+                    variant="ghost"
+                    className="h-9 w-9 px-0 shadow-none hover:shadow-none hover:bg-transparent dark:hover:bg-transparent"
                     aria-label="Add link to ungrouped"
                     onClick={() => onCreateLink(null)}
                     disabled={busy}

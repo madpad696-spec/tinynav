@@ -983,7 +983,10 @@ function LinkEditorModal({
           <div className="text-sm font-medium text-fg/80">URL</div>
           <input
             value={urlValue}
-            onChange={(e) => setUrlValue(e.target.value)}
+            onChange={(e) => {
+              setFetchTitleError(null);
+              setUrlValue(e.target.value);
+            }}
             onBlur={() => {
               const normalized = isHttpOrHttpsUrl(urlValue) ? urlValue : normalizeHttpUrl(urlValue);
               if (normalized && normalized !== urlValue) setUrlValue(normalized);
@@ -992,23 +995,6 @@ function LinkEditorModal({
             className="glass w-full rounded-2xl px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
             placeholder="https://..."
           />
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              variant="secondary"
-              className="h-9 px-3"
-              leftIcon={<RefreshCw size={18} className={fetchTitleBusy ? "animate-spin" : ""} />}
-              onClick={() => fetchTitleIntoForm()}
-              disabled={!urlValue.trim() || fetchTitleBusy}
-            >
-              自动获取标题
-            </Button>
-            <div className="text-xs text-muted">将网页标题填入描述</div>
-          </div>
-          {fetchTitleError ? (
-            <div className="rounded-2xl border border-danger/20 bg-danger/10 px-3 py-2 text-xs text-danger">
-              {fetchTitleError}
-            </div>
-          ) : null}
         </label>
 
         <label className="block space-y-2">
@@ -1049,7 +1035,24 @@ function LinkEditorModal({
           <IconPreview siteUrl={urlValue} iconUrl={iconValue} />
         </div>
         <label className="block space-y-2">
-          <div className="text-sm font-medium text-fg/80">描述（可选）</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-medium text-fg/80">描述（可选）</div>
+            <Button
+              variant="secondary"
+              className="h-8 px-3"
+              leftIcon={<RefreshCw size={16} className={fetchTitleBusy ? "animate-spin" : ""} />}
+              onClick={() => fetchTitleIntoForm()}
+              disabled={!urlValue.trim() || fetchTitleBusy}
+            >
+              自动获取标题
+            </Button>
+          </div>
+          <div className="text-xs text-muted">将网页标题填入描述</div>
+          {fetchTitleError ? (
+            <div className="rounded-2xl border border-danger/20 bg-danger/10 px-3 py-2 text-xs text-danger">
+              {fetchTitleError}
+            </div>
+          ) : null}
           <textarea
             value={descValue}
             onChange={(e) => setDescValue(e.target.value)}
